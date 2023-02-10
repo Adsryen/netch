@@ -1,3 +1,4 @@
+# `In preparation for 2.0, this repository will be cleared of all 1.0 related releases and code`
 <p align="center"><img src="https://github.com/NetchX/Netch/blob/main/Netch/Resources/Netch.png?raw=true" width="128" /></p>
 
 <div align="center">
@@ -27,7 +28,7 @@ Some features may not be implemented in version 1
 - [`WireGuard`](https://www.wireguard.com)
 - [`Trojan`](https://trojan-gfw.github.io/trojan)
 - [`VMess`](https://www.v2fly.org)
-- [`VLess`](https://xtls.github.io)
+- [`VLESS`](https://xtls.github.io)
 
 ### Others
 - UDP NAT FullCone (Limited by your server)

@@ -20,6 +20,7 @@ public static class V2rayConfigUtils
                     listen = Global.Settings.LocalAddress,
                     settings = new
                     {
+                        auth = "noauth",
                         udp = true
                     }
                 }
@@ -41,7 +42,7 @@ public static class V2rayConfigUtils
 
         switch (server)
         {
-            case Socks5Server socks5:
+            case Socks5Server socks:
             {
                 outbound.protocol = "socks";
                 outbound.settings.servers = new object[]
@@ -50,19 +51,20 @@ public static class V2rayConfigUtils
                     {
                         address = await server.AutoResolveHostnameAsync(),
                         port = server.Port,
-                        users = socks5.Auth()
+                        users = socks.Auth()
                             ? new[]
                             {
                                 new
                                 {
-                                    user = socks5.Username,
-                                    pass = socks5.Password,
+                                    user = socks.Username,
+                                    pass = socks.Password,
                                     level = 1
                                 }
                             }
                             : null
                     }
                 };
+                outbound.settings.version = socks.Version;
 
                 outbound.mux.enabled = false;
                 outbound.mux.concurrency = -1;
@@ -81,13 +83,16 @@ public static class V2rayConfigUtils
                         {
                             new User
                             {
-                                id = vless.UserID,
-                                flow = vless.Flow.ValueOrDefault(),
+                                id = getUUID(vless.UserID),
+                                flow = vless.TLSSecureType == "xtls" ? "xtls-rprx-direct" : "",
                                 encryption = vless.EncryptMethod
                             }
                         }
                     }
                 };
+
+                outbound.settings.packetEncoding = Global.Settings.V2RayConfig.XrayCone ? vless.PacketEncoding : "none";
+                outbound.mux.packetEncoding = Global.Settings.V2RayConfig.XrayCone ? vless.PacketEncoding : "none";
 
                 outbound.streamSettings = boundStreamSettings(vless);
 
@@ -107,6 +112,10 @@ public static class V2rayConfigUtils
             case VMessServer vmess:
             {
                 outbound.protocol = "vmess";
+                if (vmess.EncryptMethod == "auto" && vmess.TLSSecureType != "none" && !Global.Settings.V2RayConfig.AllowInsecure)
+                {
+                    vmess.EncryptMethod = "zero";
+                }
                 outbound.settings.vnext = new[]
                 {
                     new VnextItem
@@ -117,7 +126,7 @@ public static class V2rayConfigUtils
                         {
                             new User
                             {
-                                id = vmess.UserID,
+                                id = getUUID(vmess.UserID),
                                 alterId = vmess.AlterID,
                                 security = vmess.EncryptMethod
                             }
@@ -125,12 +134,161 @@ public static class V2rayConfigUtils
                     }
                 };
 
+                outbound.settings.packetEncoding = Global.Settings.V2RayConfig.XrayCone ? vmess.PacketEncoding : "none";
+                outbound.mux.packetEncoding = Global.Settings.V2RayConfig.XrayCone ? vmess.PacketEncoding : "none";
+
                 outbound.streamSettings = boundStreamSettings(vmess);
 
                 outbound.mux.enabled = vmess.UseMux ?? Global.Settings.V2RayConfig.UseMux;
                 outbound.mux.concurrency = vmess.UseMux ?? Global.Settings.V2RayConfig.UseMux ? 8 : -1;
                 break;
             }
+            case ShadowsocksServer ss:
+                outbound.protocol = "shadowsocks";
+                outbound.settings.servers = new[]
+                {
+                    new ShadowsocksServerItem
+                    {
+                        address = await server.AutoResolveHostnameAsync(),
+                        port = server.Port,
+                        method = ss.EncryptMethod,
+                        password = ss.Password
+                    }
+                };
+                outbound.settings.plugin = ss.Plugin ?? "";
+                outbound.settings.pluginOpts = ss.PluginOption ?? "";
+                
+                if (Global.Settings.V2RayConfig.TCPFastOpen)
+                {
+                    outbound.streamSettings = new StreamSettings
+                    {
+                        sockopt = new Sockopt
+                        {
+                            tcpFastOpen = true
+                        }
+                    };
+                }
+                break;
+             case ShadowsocksRServer ssr:
+                outbound.protocol = "shadowsocks";
+                outbound.settings.servers = new[]
+                {
+                    new ShadowsocksServerItem
+                    {
+                        address = await server.AutoResolveHostnameAsync(),
+                        port = server.Port,
+                        method = ssr.EncryptMethod,
+                        password = ssr.Password,
+                    }
+                };
+                outbound.settings.plugin = "shadowsocksr";
+                outbound.settings.pluginArgs = new string[]
+                {
+                    "--obfs=" + ssr.OBFS,
+                    "--obfs-param=" + ssr.OBFSParam ?? "",
+                    "--protocol=" + ssr.Protocol,
+                    "--protocol-param=" + ssr.ProtocolParam ?? ""
+                };
+
+                if (Global.Settings.V2RayConfig.TCPFastOpen)
+                {
+                    outbound.streamSettings = new StreamSettings
+                    {
+                        sockopt = new Sockopt
+                        {
+                            tcpFastOpen = true
+                        }
+                    };
+                }
+                break;
+             case TrojanServer trojan:
+                outbound.protocol = "trojan";
+                outbound.settings.servers = new[]
+                {
+                    new ShadowsocksServerItem // I'm not serious
+                    {
+                        address = await server.AutoResolveHostnameAsync(),
+                        port = server.Port,
+                        method = "",
+                        password = trojan.Password,
+                        flow = trojan.TLSSecureType == "xtls" ? "xtls-rprx-direct" : ""
+                    }
+                };
+
+                outbound.streamSettings = new StreamSettings
+                {
+                    network = "tcp",
+                    security = trojan.TLSSecureType
+                };
+                if (trojan.TLSSecureType != "none")
+                {
+                    var tlsSettings = new TlsSettings
+                    {
+                        allowInsecure = Global.Settings.V2RayConfig.AllowInsecure,
+                        serverName = trojan.Host ?? ""
+                    };
+
+                    switch (trojan.TLSSecureType)
+                    {
+                        case "tls":
+                            outbound.streamSettings.tlsSettings = tlsSettings;
+                            break;
+                        case "xtls":
+                            outbound.streamSettings.xtlsSettings = tlsSettings;
+                            break;
+                    }
+                }
+
+                if (Global.Settings.V2RayConfig.TCPFastOpen)
+                {
+                    outbound.streamSettings.sockopt = new Sockopt
+                    {
+                        tcpFastOpen = true
+                    };
+                }
+                break;
+            case WireGuardServer wg:
+                outbound.protocol = "wireguard";
+                outbound.settings.address = await server.AutoResolveHostnameAsync();
+                outbound.settings.port = server.Port;
+                outbound.settings.localAddresses = wg.LocalAddresses.SplitOrDefault();
+                outbound.settings.peerPublicKey = wg.PeerPublicKey;
+                outbound.settings.privateKey = wg.PrivateKey;
+                outbound.settings.preSharedKey = wg.PreSharedKey;
+                outbound.settings.mtu = wg.MTU;
+
+                if (Global.Settings.V2RayConfig.TCPFastOpen)
+                {
+                    outbound.streamSettings = new StreamSettings
+                    {
+                        sockopt = new Sockopt
+                        {
+                            tcpFastOpen = true
+                        }
+                    };
+                }
+                break;
+
+            case SSHServer ssh:
+                outbound.protocol = "ssh";
+                outbound.settings.address = await server.AutoResolveHostnameAsync();
+                outbound.settings.port = server.Port;
+                outbound.settings.user = ssh.User;
+                outbound.settings.password = ssh.Password;
+                outbound.settings.privateKey = ssh.PrivateKey;
+                outbound.settings.publicKey = ssh.PublicKey;
+                
+                if (Global.Settings.V2RayConfig.TCPFastOpen)
+                {
+                    outbound.streamSettings = new StreamSettings
+                    {
+                        sockopt = new Sockopt
+                        {
+                            tcpFastOpen = true
+                        }
+                    };
+                }
+                break;
         }
 
         return outbound;
@@ -257,6 +415,23 @@ public static class V2rayConfigUtils
                 throw new MessageException($"transfer protocol \"{server.TransferProtocol}\" not implemented yet");
         }
 
+        if (Global.Settings.V2RayConfig.TCPFastOpen)
+        {
+            streamSettings.sockopt = new Sockopt
+            {
+                tcpFastOpen = true
+            };
+        }
+
         return streamSettings;
+    }
+
+    public static string getUUID(string uuid)
+    {
+        if (uuid.Length == 36 || uuid.Length == 32)
+        {
+            return uuid;
+        }
+        return uuid.GenerateUUIDv5();
     }
 }

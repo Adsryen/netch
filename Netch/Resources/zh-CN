@@ -47,7 +47,9 @@
 
     "Address": "地址",
     "Username": "用户名",
+    "User": "用户",
     "Password": "密码",
+    "Version": "版本",
     "User ID": "用户 ID",
     "Alter ID": "额外 ID",
     "Transfer Protocol": "传输协议",
@@ -69,6 +71,10 @@
     "Plugin": "插件",
     "Plugin Options": "插件参数",
     "Remote Address": "远端地址",
+    "Local Addresses": "本地地址(可多个)",
+    "Public Key": "公钥",
+    "Private Key": "私钥",
+    "PSK": "节点预共享密钥",
 
     "Subscription": "订阅",
     "Manage Subscriptions": "管理订阅",
@@ -178,6 +184,7 @@
     "STUN Server": "STUN 服务器",
     "Language": "语言",
     "FullCone Support (Required Server Xray-core v1.3.0+)": "FullCone 支持（需服务端 Xray-core v1.3.0+）",
+    "TCP FastOpen": "TCP 快速打开",
     "Disable Support Warning": "停用支持警告",
 
     "Profile": "配置名",

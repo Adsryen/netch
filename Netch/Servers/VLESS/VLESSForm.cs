@@ -17,12 +17,16 @@ internal class VLESSForm : ServerForm
             s => server.EncryptMethod = !string.IsNullOrWhiteSpace(s) ? s : "none",
             server.EncryptMethod);
 
-        CreateTextBox("Flow", "Flow", s => true, s => server.Flow = s, server.Flow);
         CreateComboBox("TransferProtocol",
             "Transfer Protocol",
             VLESSGlobal.TransferProtocols,
             s => server.TransferProtocol = s,
             server.TransferProtocol);
+        CreateComboBox("PacketEncoding",
+            "Packet Encoding",
+            VMessGlobal.PacketEncodings,
+            s => server.PacketEncoding = s,
+            server.PacketEncoding);
 
         CreateComboBox("FakeType", "Fake Type", VLESSGlobal.FakeTypes, s => server.FakeType = s, server.FakeType);
         CreateTextBox("Host", "Host", s => true, s => server.Host = s, server.Host);
